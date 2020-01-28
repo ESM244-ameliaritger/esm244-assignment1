@@ -9,22 +9,14 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+You get to decide what variables and summary statistics to visualize. Here’s what you should prepare:
+A single polished HTML (knitted from .Rmd), planning that this might be a post/project you’d include on your personal blogdown site, that includes at least:
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+1. A useful descriptive introductory summary (3 - 4 sentences) of what’s contained in the project
+2. Image(s), with captions and necessary citation(s), of showshoe hares and/or a map of the study area
+3. All of your organized and well-annotated code (with warnings/messages hidden) used to create at least
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+- One finalized graph about the Bonanza Creek snowshoe hare population (you pick which variables, how you want to wrangle it beforehand, and which type of visual to create - but make sure it is beautifully finalized)
+- One finalized HTML table (probably created using kable & kableExtra) containing summary statistics about the snowshoe hares (again, you pick which variables, and how you want to group/summarize them)
 
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+4. Make sure that both your figure and table appear in your final knitted document, each with a useful caption. Include text associated with each to help the audience understand and interpret the results.

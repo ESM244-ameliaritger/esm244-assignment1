@@ -9,13 +9,10 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-For this task, I’ll provide a couple of datasets that you *can* use for PCA exploration, but you are also welcome to find/choose a different dataset to use. You only need to use one dataset to practice running PCA, creating a biplot, and interpreting the results. Whichever dataset you choose, create a finalized HTML (knitted from .Rmd) that can be included as a project on your blogdown site including: 
+You only need to use one dataset to practice running PCA, creating a biplot, and interpreting the results. Whichever dataset you choose, create a finalized HTML (knitted from .Rmd) that can be included as a project on your blogdown site including: 
 
-A useful descriptive introductory summary (3 - 4 sentences) that helps the audience understand the data (include a citation as necessary) and what you’ll be exploring
-All of your organized and well-annotated code (with warnings/messages hidden) used to wrangle then run PCA, then create a finalized PCA biplot that appears (with a caption) in your knitted HTML
-A summary (bulletpoints are fine) pointing out some major takeaways from your PCA that can be gleaned from the biplot
-You are also welcome to include a photo in the HTML to add some visual interest (not required for Task 2). 
-
-Here are two datasets that you can work with, either in whole or in part (i.e. you are welcome to wrangle in order to limit observations and/or variables, just make sure to describe how you are limiting things in your project), or feel free to choose your own:
-
+1. A useful descriptive introductory summary (3 - 4 sentences) that helps the audience understand the data (include a citation as necessary) and what you’ll be exploring
+2. All of your organized and well-annotated code (with warnings/messages hidden) used to wrangle then run PCA, then create a finalized PCA biplot that appears (with a caption) in your knitted HTML
+3. A summary (bulletpoints are fine) pointing out some major takeaways from your PCA that can be gleaned from the biplot
+4. You are also welcome to include a photo in the HTML to add some visual interest (not required for Task 2). 
 Food nutrient information for raw fruits and veggies from USDA (National Nutrient Database, now FoodData Central)
