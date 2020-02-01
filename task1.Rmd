@@ -1,7 +1,7 @@
 ---
-title: "Task 1"
+title: "Assignment 1"
 author: "Amelia Ritger"
-date: "1/28/2020"
+date: "2/1/2020"
 output: html_document
 ---
 
@@ -9,19 +9,37 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-You get to decide what variables and summary statistics to visualize. Here’s what you should prepare:
-A single polished HTML (knitted from .Rmd), planning that this might be a post/project you’d include on your personal blogdown site, that includes at least:
+You get to decide what variables and summary statistics to visualize. Here’s what you should prepare: A single polished HTML (knitted from .Rmd), planning that this might be a post/project you’d include on your personal blogdown site, that includes at least:
 
 1. A useful descriptive introductory summary (3 - 4 sentences) of what’s contained in the project
+
 2. Image(s), with captions and necessary citation(s), of showshoe hares and/or a map of the study area
+
 3. All of your organized and well-annotated code (with warnings/messages hidden) used to create at least
 
 - One finalized graph about the Bonanza Creek snowshoe hare population (you pick which variables, how you want to wrangle it beforehand, and which type of visual to create - but make sure it is beautifully finalized)
+
 - One finalized HTML table (probably created using kable & kableExtra) containing summary statistics about the snowshoe hares (again, you pick which variables, and how you want to group/summarize them)
 
 4. Make sure that both your figure and table appear in your final knitted document, each with a useful caption. Include text associated with each to help the audience understand and interpret the results.
 
-```{r}
+## Task 1: snowshoe hares 
+
+The following is a visualization of data collected on snowshoe hares (*Lepus americanus*) found in the Bonanza Creek Experimental Forest (Alaska) from 1999 to 2012. [Check out this database](https://doi.org/10.6073/pasta/03dce4856d79b91557d8e6ce2cbcdc14) for more information on the study.
+
+### Wondering what a snowhoe hare looks like?
+
+Here's an image of a snowshoe hare in the summer (Photo by Robb Hannawacker):
+
+![](Snowshoe-hare.jpg)
+
+And here's an image of a snowshoe hare in the winter (Photo by Michael Cummings):
+
+![](snowshoe-winter.jpg)
+
+Because I don't know much about the methods of trapping showshoe hares or snowshoe hare behavior, the following is an exploration of the data to answer the question: What are the characteristics of individuals that were trapped frequently? For example, are females more likely to be trapped frequently? Are larger individuals less likely to evade trapping? Let's find out!
+
+```{r, message=FALSE, warning=FALSE}
 #load packages
 library(tidyverse)
 library(lubridate)
@@ -46,7 +64,7 @@ keep(is.numeric) %>%
     geom_histogram()
 ```
 
-Might be interesting to look at weight across year for males and females at different locations
+It might be interesting to look at weight across year for males and females at different locations.
 
 ```{r}
 unique(snowshoe$grid)
@@ -61,7 +79,7 @@ hare_wt <- hare_raw %>%
 ```
 
 Now let's take a real look at the data
-```{r}
+```{r, message=FALSE}
 ggplot(hare_wt, aes(x=weight)) +
   geom_histogram()
 
@@ -124,15 +142,15 @@ hare_trap <- hare_raw %>%
 hare_counts <- hare_trap %>%
   count(b_key)
 
-hist(hare_counts$n, breaks=30) #looks like a lot of individuals were trapped between 0-2 times
+hist(hare_counts$n, breaks=20) #looks like a lot of individuals were trapped between 0-2 times
 
 #isolate all individuals trapped more than twice
 many <- plyr::ddply(hare_trap, "b_key", function(d) {if(nrow(d)>2) d else NULL}) %>%
-  mutate(trapping="Trapped many (more than 2) times") #add so you can ID once you combine
+  mutate(trapping="Trapped many times") #add so you can ID once you combine
 
 # isolate all individuals trapped only once or twice (to make sure the math adds up)
 few <- plyr::ddply(hare_trap, "b_key", function(d) {if(nrow(d)<=2) d else NULL}) %>%
-  mutate(trapping="Trapped few (1 or 2) times") #add so you can ID once you combine
+  mutate(trapping="Trapped few times") #add so you can ID once you combine
 
 #combine the two datasets
 hare_trap <- rbind(many,few)
@@ -164,6 +182,11 @@ trapped_summary <- trapped %>%
             sample_size = n(),
             se_bc = sd(bc)/sqrt(n()),
             var_bc = var(bc))
+
+kable(trapped_summary,
+      col.names = c("Trapping frequency", "Sex", "Mean body condition", "Standard deviation", "Sample size", "Standard error", "Variance")) %>% 
+  kable_styling(bootstrap_options = "striped",
+                full_width = FALSE)
 ```
 
 Now plot it up and make it pretty
@@ -200,8 +223,12 @@ ggplot() +
         axis.title=element_text(size=14))
 ```
 
+Figure 1. Body condition (g/mm) of snowshoe hares trapped few times (once or twice) or many times (more than twice), separated by sex. Black filled diamonds indicate mean values and error bars indicate standard deviation around the mean.
+
+In the Bonanza Riparian zone, it appears that snowshoe hares trapped more frequently tended to have slightly higher body conditions than snowshoe hares trapped less frequently. Males and females did not have different body conditions, nor did they appear to be trapped more or less frequently.
+
 Make a nice table showing percentages of each sex captured 
-```{r}
+```{r, message=FALSE}
 trapped_table <- trapped %>%
   group_by(trapping) %>%
   count(sex) %>%
@@ -218,3 +245,6 @@ kable(trapped_props,
                 full_width = FALSE)
 ```
 
+Table 1. Numbers and percentages of each sex of snowshoe hares trapped frequently ("many") or infrequently ("few").
+
+In the Bonanza Riparian zone, female snowshoe hares were more likely to be trapped than male snowshoe hares. However, the percentages of each sex trapped did not change drastically between snowshoe hares trapped few or many times.
