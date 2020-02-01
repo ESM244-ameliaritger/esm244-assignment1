@@ -20,3 +20,201 @@ A single polished HTML (knitted from .Rmd), planning that this might be a post/p
 - One finalized HTML table (probably created using kable & kableExtra) containing summary statistics about the snowshoe hares (again, you pick which variables, and how you want to group/summarize them)
 
 4. Make sure that both your figure and table appear in your final knitted document, each with a useful caption. Include text associated with each to help the audience understand and interpret the results.
+
+```{r}
+#load packages
+library(tidyverse)
+library(lubridate)
+library(ggbeeswarm)
+library(kableExtra)
+library(janitor)
+
+#read in data
+snowshoe <- read_csv("showshoe_lter.csv")
+
+#tidy up data
+hare_raw <- snowshoe %>%
+  mutate(date=lubridate::mdy(date)) %>%  #convert to a date format R recognizes
+  select(date,trap,grid,b_key,sex,weight,hindft,session_id,study) #remove variables with not a lot of data
+
+#look at histograms of continuous data
+hare_raw %>%
+keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+```
+
+Might be interesting to look at weight across year for males and females at different locations
+
+```{r}
+unique(snowshoe$grid)
+#definitely looks like there's some questioning of sex in here, let's remove those question marks
+
+hare_wt <- hare_raw %>% 
+  mutate(sex = str_to_lower(sex)) %>%  #convert all values to lowercase
+  mutate(grid = str_to_lower(grid)) %>%  #do this again for lcation ("grid")
+  filter(sex %in% c("m","f")) %>%  #remove all questionable values
+  drop_na(weight) %>%  #remove rows without weight values
+  select(date,grid,sex,weight,hindft) #only keep variables I actually want
+```
+
+Now let's take a real look at the data
+```{r}
+ggplot(hare_wt, aes(x=weight)) +
+  geom_histogram()
+
+ggplot(hare_wt, aes(sample=weight)) +
+  geom_qq() +
+  geom_qq_line()
+
+ggplot(hare_wt, aes(x = date, y = weight)) +
+  geom_jitter(size = 1, 
+              alpha = 0.5,
+              aes(color = sex,
+                  pch = sex)) +
+  facet_wrap(~grid) +
+  scale_color_manual(values = c("pink","blue"))
+```
+Darn, it looks like only "bonrip" was continuously sampled from 2000-2015. So I'm only going to be looking at "bonrip" for my analysis. Because hare lifespan is on a smaller scale, let's look at seasonality patterns.
+
+```{r}
+bonrip <- hare_wt %>%
+  filter(grid=="bonrip") %>% 
+  mutate(obs_month=lubridate::month(date, label=TRUE),
+         obs_year=lubridate::year(date),
+         season=lubridate::quarter(date)) %>%
+  mutate(season = str_replace(season, "1", "winter")) %>% 
+  mutate(season = str_replace(season, "2", "spring")) %>%
+  mutate(season = str_replace(season, "3", "summer")) %>%
+  mutate(season = str_replace(season, "4", "fall"))
+
+unique(bonrip$obs_month)
+
+ggplot(bonrip, aes(x = obs_year, y = weight)) +
+  geom_jitter(size = 1, 
+              alpha = 0.5,
+              aes(color = sex,
+                  pch = sex)) +
+  facet_wrap(~season) +
+  scale_color_manual(values = c("pink","blue")) +
+  theme_bw()
+#season is going to be tough to parse out across years
+
+ggplot(bonrip, aes(x = obs_year, y = weight)) +
+  geom_jitter(size = 1, 
+              alpha = 0.5,
+              aes(color = sex,
+                  pch = sex)) +
+  facet_wrap(~sex)
+```
+
+Let's go in a different direction. What are the characteristics of individuals that are trapped more than once?
+```{r}
+sorted <- sort(hare_raw$b_key)
+
+hare_trap <- hare_raw %>% 
+  mutate(trap = str_to_lower(trap)) %>%  #convert all values to lowercase
+  mutate(grid = str_to_lower(grid)) %>%  #do this again for location ("grid")
+  mutate(sex = str_to_lower(sex)) %>% #do this again for sex
+  filter(grid=="bonrip") #only look at individuals trapped in bonrip
+
+#visualize number of times each individual was trapped
+hare_counts <- hare_trap %>%
+  count(b_key)
+
+hist(hare_counts$n, breaks=30) #looks like a lot of individuals were trapped between 0-2 times
+
+#isolate all individuals trapped more than twice
+many <- plyr::ddply(hare_trap, "b_key", function(d) {if(nrow(d)>2) d else NULL}) %>%
+  mutate(trapping="Trapped many (more than 2) times") #add so you can ID once you combine
+
+# isolate all individuals trapped only once or twice (to make sure the math adds up)
+few <- plyr::ddply(hare_trap, "b_key", function(d) {if(nrow(d)<=2) d else NULL}) %>%
+  mutate(trapping="Trapped few (1 or 2) times") #add so you can ID once you combine
+
+#combine the two datasets
+hare_trap <- rbind(many,few)
+```
+
+Now that we have the data all separated out, let's take a look at characteristics of individuals trapped many times versus few times
+```{r}
+# 
+trapped <- hare_trap %>%
+  mutate(bc = weight/hindft) %>% #calculate body condition values (from Flora 2002)
+  drop_na(bc) %>%  #drop na values
+  filter(sex %in% c("m","f")) #remove questionable sex values
+
+ggplot(trapped, aes(x = sex, y=bc)) +
+  geom_jitter(size = 1, 
+              alpha = 0.5,
+              aes(color = sex,
+                  pch = sex)) +
+  facet_wrap(~trapping)
+```
+Let's work a bit more with this
+
+Get summary statistics
+```{r}
+trapped_summary <- trapped %>%
+  group_by(trapping,sex) %>%
+  summarize(mean_bc = mean(bc),
+            sd_bc = sd(bc),
+            sample_size = n(),
+            se_bc = sd(bc)/sqrt(n()),
+            var_bc = var(bc))
+```
+
+Now plot it up and make it pretty
+```{r}
+ggplot() +
+  geom_beeswarm(data=trapped,
+                aes(x=sex, y=bc, color=sex),
+                size=1,
+                alpha=0.6) +
+  geom_point(data=trapped_summary,
+             aes(x=sex, y=mean_bc),
+             color="black",
+             fill="black",
+             shape=23,
+             size=2) +
+  geom_errorbar(data=trapped_summary,
+                aes(x=sex,
+                    ymin=mean_bc - sd_bc,
+                    ymax=mean_bc + sd_bc), 
+                width=0.1) +
+  xlab("Sex") +
+  ylab("Body condition (g/mm)") +
+  scale_x_discrete(labels=c("Female", "Male")) +
+  facet_wrap(~trapping) +
+  theme(legend.position="none",
+        panel.background =  element_rect(fill = "white", colour = NA), 
+        panel.border =      element_rect(fill = NA, colour="grey50"), 
+        panel.grid.major =  element_line(colour = "grey90", size = 0.2),
+        panel.grid.minor =  element_line(colour = "grey98", size = 0.5),
+        axis.line = element_line(),
+        strip.background = element_rect(colour = "black", fill = "white"),
+        strip.text = element_text(size=12),
+        axis.text=element_text(size=12),
+        axis.title=element_text(size=14))
+```
+
+Make a nice table showing percentages of each sex captured 
+```{r}
+trapped_table <- trapped %>%
+  group_by(trapping) %>%
+  count(sex) %>%
+  pivot_wider(names_from=sex, values_from=n)
+
+trapped_props <- trapped_table %>%
+  adorn_percentages(denominator="row") %>% #convert to percentages
+  adorn_pct_formatting(digits=1) %>% #dictate sig figs
+  adorn_ns(position="front") #show counts follow by percentages
+
+kable(trapped_props,
+      col.names = c("Trapping frequency","Female", "Male")) %>% 
+  kable_styling(bootstrap_options = "striped",
+                full_width = FALSE)
+```
+
