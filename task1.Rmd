@@ -37,8 +37,9 @@ And here's an image of a snowshoe hare in the winter (Photo by Michael Cummings)
 
 ![](snowshoe-winter.jpg)
 
-Because I don't know much about the methods of trapping showshoe hares or snowshoe hare behavior, the following is an exploration of the data to answer the question: What are the characteristics of individuals that were trapped frequently? For example, are females more likely to be trapped frequently? Are larger individuals less likely to evade trapping? Let's find out!
+Because I don't know much about the methods of trapping showshoe hares or snowshoe hare behavior, the following is an exploration of the data to answer the question: What are the characteristics of individuals that were trapped frequently? For example, are females more likely to be trapped frequently? Are larger individuals less likely to evade trapping?
 
+#### Let's find out!
 ```{r, message=FALSE, warning=FALSE}
 #load packages
 library(tidyverse)
@@ -63,10 +64,10 @@ keep(is.numeric) %>%
     facet_wrap(~ key, scales = "free") +
     geom_histogram()
 ```
-
 It might be interesting to look at weight across year for males and females at different locations.
 
-```{r}
+#### Let's take a look at the data:
+```{r,, message=FALSE}
 unique(snowshoe$grid)
 #definitely looks like there's some questioning of sex in here, let's remove those question marks
 
@@ -76,16 +77,6 @@ hare_wt <- hare_raw %>%
   filter(sex %in% c("m","f")) %>%  #remove all questionable values
   drop_na(weight) %>%  #remove rows without weight values
   select(date,grid,sex,weight,hindft) #only keep variables I actually want
-```
-
-Now let's take a real look at the data
-```{r, message=FALSE}
-ggplot(hare_wt, aes(x=weight)) +
-  geom_histogram()
-
-ggplot(hare_wt, aes(sample=weight)) +
-  geom_qq() +
-  geom_qq_line()
 
 ggplot(hare_wt, aes(x = date, y = weight)) +
   geom_jitter(size = 1, 
@@ -95,43 +86,10 @@ ggplot(hare_wt, aes(x = date, y = weight)) +
   facet_wrap(~grid) +
   scale_color_manual(values = c("pink","blue"))
 ```
-Darn, it looks like only "bonrip" was continuously sampled from 2000-2015. So I'm only going to be looking at "bonrip" for my analysis. Because hare lifespan is on a smaller scale, let's look at seasonality patterns.
+Darn, it looks like only "bonrip" was continuously sampled from 2000-2015. So I'm going to focus on "bonrip" for my analysis.
 
+#### Let's focus in on the main question: What are the characteristics of individuals that are trapped more than once?
 ```{r}
-bonrip <- hare_wt %>%
-  filter(grid=="bonrip") %>% 
-  mutate(obs_month=lubridate::month(date, label=TRUE),
-         obs_year=lubridate::year(date),
-         season=lubridate::quarter(date)) %>%
-  mutate(season = str_replace(season, "1", "winter")) %>% 
-  mutate(season = str_replace(season, "2", "spring")) %>%
-  mutate(season = str_replace(season, "3", "summer")) %>%
-  mutate(season = str_replace(season, "4", "fall"))
-
-unique(bonrip$obs_month)
-
-ggplot(bonrip, aes(x = obs_year, y = weight)) +
-  geom_jitter(size = 1, 
-              alpha = 0.5,
-              aes(color = sex,
-                  pch = sex)) +
-  facet_wrap(~season) +
-  scale_color_manual(values = c("pink","blue")) +
-  theme_bw()
-#season is going to be tough to parse out across years
-
-ggplot(bonrip, aes(x = obs_year, y = weight)) +
-  geom_jitter(size = 1, 
-              alpha = 0.5,
-              aes(color = sex,
-                  pch = sex)) +
-  facet_wrap(~sex)
-```
-
-Let's go in a different direction. What are the characteristics of individuals that are trapped more than once?
-```{r}
-sorted <- sort(hare_raw$b_key)
-
 hare_trap <- hare_raw %>% 
   mutate(trap = str_to_lower(trap)) %>%  #convert all values to lowercase
   mutate(grid = str_to_lower(grid)) %>%  #do this again for location ("grid")
@@ -148,7 +106,7 @@ hist(hare_counts$n, breaks=20) #looks like a lot of individuals were trapped bet
 many <- plyr::ddply(hare_trap, "b_key", function(d) {if(nrow(d)>2) d else NULL}) %>%
   mutate(trapping="Trapped many times") #add so you can ID once you combine
 
-# isolate all individuals trapped only once or twice (to make sure the math adds up)
+# isolate all individuals trapped only once or twice (and make sure the math adds up)
 few <- plyr::ddply(hare_trap, "b_key", function(d) {if(nrow(d)<=2) d else NULL}) %>%
   mutate(trapping="Trapped few times") #add so you can ID once you combine
 
@@ -156,9 +114,8 @@ few <- plyr::ddply(hare_trap, "b_key", function(d) {if(nrow(d)<=2) d else NULL})
 hare_trap <- rbind(many,few)
 ```
 
-Now that we have the data all separated out, let's take a look at characteristics of individuals trapped many times versus few times
+#### Now that we have the data all separated out, let's take a look at characteristics of individuals trapped many times versus few times:
 ```{r}
-# 
 trapped <- hare_trap %>%
   mutate(bc = weight/hindft) %>% #calculate body condition values (from Flora 2002)
   drop_na(bc) %>%  #drop na values
@@ -171,25 +128,26 @@ ggplot(trapped, aes(x = sex, y=bc)) +
                   pch = sex)) +
   facet_wrap(~trapping)
 ```
-Let's work a bit more with this
+Let's work a bit more with this.
 
-Get summary statistics
+#### Get summary statistics:
 ```{r}
 trapped_summary <- trapped %>%
-  group_by(trapping,sex) %>%
-  summarize(mean_bc = mean(bc),
-            sd_bc = sd(bc),
-            sample_size = n(),
-            se_bc = sd(bc)/sqrt(n()),
-            var_bc = var(bc))
+  group_by(trapping,sex) %>% #group by trapping status, then sex
+  summarize(mean_bc = mean(bc), #get the mean body condition
+            sd_bc = sd(bc), #get the s.d. body condition
+            sample_size = n(), #get the sample size
+            se_bc = sd(bc)/sqrt(n()), #get the s.e. body condition, in case it's useful
+            var_bc = var(bc)) #get the variance body condition, in case it's useful
 
+#put it all together in a nice looking table
 kable(trapped_summary,
       col.names = c("Trapping frequency", "Sex", "Mean body condition", "Standard deviation", "Sample size", "Standard error", "Variance")) %>% 
   kable_styling(bootstrap_options = "striped",
                 full_width = FALSE)
 ```
 
-Now plot it up and make it pretty
+#### Now plot it up and make it pretty:
 ```{r}
 ggplot() +
   geom_beeswarm(data=trapped,
@@ -227,11 +185,11 @@ Figure 1. Body condition (g/mm) of snowshoe hares trapped few times (once or twi
 
 In the Bonanza Riparian zone, it appears that snowshoe hares trapped more frequently tended to have slightly higher body conditions than snowshoe hares trapped less frequently. Males and females did not have different body conditions, nor did they appear to be trapped more or less frequently.
 
-Make a nice table showing percentages of each sex captured 
+#### Make a nice table showing percentages of each sex captured:
 ```{r, message=FALSE}
 trapped_table <- trapped %>%
-  group_by(trapping) %>%
-  count(sex) %>%
+  group_by(trapping) %>% #group by trapping status
+  count(sex) %>% #get counts for each sex
   pivot_wider(names_from=sex, values_from=n)
 
 trapped_props <- trapped_table %>%
@@ -239,6 +197,7 @@ trapped_props <- trapped_table %>%
   adorn_pct_formatting(digits=1) %>% #dictate sig figs
   adorn_ns(position="front") #show counts follow by percentages
 
+#put it all together in a nice looking table
 kable(trapped_props,
       col.names = c("Trapping frequency","Female", "Male")) %>% 
   kable_styling(bootstrap_options = "striped",
