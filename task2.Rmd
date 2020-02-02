@@ -1,7 +1,7 @@
 ---
 title: "Task 2"
 author: "Amelia Ritger"
-date: "1/28/2020"
+date: "2/1/2020"
 output: html_document
 ---
 
@@ -15,144 +15,72 @@ You only need to use one dataset to practice running PCA, creating a biplot, and
 2. All of your organized and well-annotated code (with warnings/messages hidden) used to wrangle then run PCA, then create a finalized PCA biplot that appears (with a caption) in your knitted HTML
 3. A summary (bulletpoints are fine) pointing out some major takeaways from your PCA that can be gleaned from the biplot
 4. You are also welcome to include a photo in the HTML to add some visual interest (not required for Task 2). 
-Food nutrient information for raw fruits and veggies from USDA (National Nutrient Database, now FoodData Central)
 
-```{r}
+The following is an exploration of food nutrient information provided by the [USDA National Nutrient Database](https://fdc.nal.usda.gov/index.html). Specifically, I examined variation in nutrients (such as fat, vitamin E, and iron) present in baby food using a principal components analysis (PCA). Using a PCA allowed me to explore the multi-dimensionality of many nutrients (23, to be specific) present in baby food in a format that my adult brain can better comprehend.
+
+#### So, let's get started!
+```{r, message=FALSE, warning=FALSE}
+#load the packages
 library(tidyverse)
-library(here)
 library(janitor)
 library(naniar)
 library(VIM)
 library(skimr)
 library(ggfortify)
-```
 
-## 1. Get some data
-```{r}
-ca_pb <- read_csv(here("data", "ca_pollution_burden.csv"))
-ca_dem <- read_csv(here("data", "ca_census_demographics_2010.csv"))
-```
+#Input the data
+food <- read_csv("usda_nutrients.csv")
 
-## 2. Some data cleaning and wrangling
+unique(food$FoodGroup)
+```
+It would be interesting to compare fast foods and restaurant foods. But that would mean running two PCAs *and ain't nobody got time for that*... so let's look at baby food!
+
+#### Clean the data
 ```{r}
-ca_pb_nopct <- ca_pb %>% 
+food_subset <- food %>% 
   clean_names() %>%
-  select(-contains("perc")) %>% 
-  select(-contains("pctl")) %>%
-  select(-latitude, -longitude)
+  mutate(food_group = str_to_lower(food_group)) %>%
+  filter(food_group == "baby foods") %>% #only look at baby food
+  select(energy_kcal:zinc_mg) #choose variables to keep
 ```
 
+#### Run the PCA
 ```{r}
-ca_dem_clean <- ca_dem %>% 
-  clean_names()
+food_pca <- prcomp(food_subset, scale=TRUE)
+
+#Is there missingness?
+naniar::gg_miss_var(food_subset) #nope!
+
+#Proportion of variance & cumulative variance explained by each PC
+summary(food_pca)
+
+#Visualize scree plot
+plot(food_pca)
+# The amount of variation explained drops off dramatically after PC1, but even moreso after PC2. 
+
+#Rotations (linear combinations for each PC):
+food_rotation <- food_pca
 ```
+Dang, PC1 explains 55.3% of variance, and PC2 explains 17.2% of variance - that's a lot of variance explained with just the first two principal components given we have 23 PCs to work with! 
 
-## 3. Pollution burden indicators only 
-(create PCA specific selected dataset)
-```{r}
-ca_pb_subset <- ca_pb_nopct %>% 
-  select(ozone:solid_waste, asthma:housing_burden)
+#### Plot the biplot
+```{r, warning=FALSE}
+autoplot(food_pca,
+         colour = "grey80",
+         loadings.label = TRUE,
+         loadings.label.size = c(3,4,3,4,4,4,4,3,3,4,4,4,4,4,3,3,4,3,3,3,4,3,3),
+         loadings.label.hjust = c(1,1,1,3,2,1.5,1,1,2,1,2,2,1,1.5,1,1,1.5,2,0.5,1,1,1,1),
+         loadings.label.colour = "black",
+         loadings.label.repel = TRUE,
+         alpha = 0.5) +
+  theme_bw() +
+  scale_x_continuous(limits = c(-0.2, 0.05)) +
+  scale_y_continuous(limits = c(-0.3, 0.2))
 ```
+Figure 1. Principal components analysis (PCA) on food nutrients measured in baby food sold in the United States. Principal component 1 (PC1) accounted for 55.35% of variation in food nutrients, and principal component 2 (PC2) accounted for an additional 17.16% of food nutrient variation. 
 
-Now let's do PCA
-Use the `prcomp()` function
-```{r, eval=FALSE}
-pb_PCA <- prcomp(ca_pb_subset, scale=TRUE)
-```
-This gives an error because there are missing values!
+#### So, what does this mean?
+In baby food, highly positively correlated nutrient pairs are: riboflavin and niacin, carbohydrates and phosphorus, copper and protein, vitamin E and folate, and sugar and vitamin B12. Fiber is minimally correlated with vitamin A, vitamin C, and manganese.
 
-Aside: Explore missingness
-```{r}
-summary(ca_pb_subset) #there are 242 NAs in the data
-#but that's clunky, here's a nicer way to visualize NAs:
-naniar::gg_miss_var(ca_pb_subset)
-matrixplot(ca_pb_subset, sortby="poverty") #shade indicates value level; red indicates missing value (NA)
-```
-
-Remove by complete case deletion (any observation with any NA values)
-```{r}
-ca_pb_nona <- ca_pb_subset %>% 
-  drop_na()
-skimr::skim(ca_pb_nona) #alternative to summary()
-```
-
-No NA values now. Cool. Ready to do PCA (otherwise, consider imputation, etc)
-```{r}
-my_ca_pca <- prcomp(ca_pb_nona, scale=TRUE)
-summary(my_ca_pca)
-
-#biplot(my_ca_pca)
-#looks like a car wreck, let's try autoplot()
-
-my_biplot <- autoplot(my_ca_pca,
-                      colour = NA,
-                      loadings.label = TRUE,
-                      loadings.label.size = 3,
-                      loadings.label.colour = "black",
-                      loadings.label.repel = TRUE)
-```
-
-## 4. PCA for pollution burden + demographics
-
-Join together the ca_dem_clean with ca_pb_nopct
-
-```{r}
-ca_df <- ca_dem_clean %>% 
-  inner_join(ca_pb_nopct, by=c("census_tract_number" = "census_tract"))
-```
-
-##### At this point I left lab
-
-Check it out, then get complete cases:
-```{r}
-ca_df_nona <- ca_df %>% 
-  drop_na()
-```
-
-## 5. Make a new subset for PCA, that includes % white and elderly, and some interesting pollution burden & health indicators:
-
-Like (you can choose a different set): 
-
-- white_percent
-- elderly_65_percent
-- pm2_5
-- pesticides
-- traffic
-- asthma
-- cardiovascular_disease
-- poverty
-
-Make our subset:
-```{r}
-my_sub <- ca_df_nona %>% 
-  select(white_percent, elderly_65_percent, pm2_5, pesticides, traffic, asthma, cardiovascular_disease, poverty)
-```
-
-Then run PCA: 
-```{r}
-my_dem_pca <- prcomp(my_sub, scale = TRUE)
-biplot(my_dem_pca) # Noooo. We need better
-```
-
-Check it out a bit: 
-```{r}
-# Proportion of variance (& cumulative variance) explained by each PC
-summary(my_dem_pca)
-
-# Rotations (linear combinations for each PC):
-my_dem_pca
-```
-
-Make a sweet biplot:
-```{r}
-my_dem_biplot <- autoplot(my_dem_pca, 
-                      colour = NA,
-                      loadings.label = TRUE,
-                      loadings.label.size = 3,
-                      loadings.label.colour = "black",
-                      loadings.label.repel = TRUE) +
-  theme_minimal() +
-  scale_y_continuous(limits = c(-0.05, 0.05))
-
-my_dem_biplot
-```
+Additional research is needed to understand why vitamin B12 and sugar are so highly correlated in baby food...
+![](babyfood.jpg)
