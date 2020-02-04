@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(janitor)
+library(sf)
+library(tmap)
 ```
 
 ```{r, message=FALSE, warning=FALSE}
@@ -18,6 +20,7 @@ reef <- read_csv("MBONReef_Histogram.csv")
 #Tidy up the data
 reef_tidy <- reef %>%
   clean_names() %>% #standardize names
+  rename(latitude=lat_start, longitude=long_start) %>% #rename latitude and longitude
   pivot_longer("annelida_cirriformia_luxuriosa":"substrate_amphipod_tube_complex") %>%  #make long form
   separate(name, into="phylum", sep="_", remove=FALSE) %>% #Add column for phylum name
   mutate(vectorized_name=str_split(name, pattern="_")) %>% #In case this is useful...
@@ -27,6 +30,7 @@ reef_tidy <- reef %>%
 #Because it's faster to do it outside tidyverse
 reef_tidy$binary <- ifelse(reef_tidy$value>0, 1, 0) #Add presence/absence column
 reef_tidy$species <- gsub("^[^_]*_","",reef_tidy$name, perl=TRUE) #Add column for species name
+reef_tidy$longitude <- ifelse(reef_tidy$longitude<0, reef_tidy$longitude, -reef_tidy$longitude) #because all longitude values in this region should be negative 
 
 #Extract only species present
 reef_tidy <- reef_tidy %>%
@@ -60,3 +64,34 @@ ggplot(reef_select, aes(x=phylum)) +
   coord_flip()
 ```
 I will allow people to pick their focal phylum and co-occuring phylum
+
+### Now let's make a map!
+```{r}
+library(rnaturalearth)
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+ggplot(data = world) +
+    geom_sf() +
+    geom_point(data=reef_tidy, aes(x = longitude, y = latitude), size = 4, 
+        shape = 23, fill = "darkred") +
+    coord_sf(xlim = c(-121, -118.5), ylim = c(33, 35), expand = FALSE)
+```
+
+ggplot() +
+  geom_sf(data=reef_tidy, fill="gray90", color="gray80", size=0.2) +
+  geom_sf(data=eco_clip, aes(fill=region), color="white", size = 0.4, show.legend=TRUE) +
+  coord_sf(xlim=c(-121, -119), ylim=c(33.5, 35.5)) + #remove greater CA state, zoom into SB county
+  theme_minimal()
+  
+### Let's make an interactive map!
+```{r}
+reef_sf <- st_as_sf(reef_tidy, coords=c("longitude", "latitude"), crs=4326) #make data sf geometry friendly
+
+reef_map <- tm_basemap("Esri.WorldImagery") +
+  tm_shape(reef_sf) + #tells tmap where we're looking (i.e. california)
+  tm_dots(labels="id", col="purple", size=0.5) #tells tmap to plot points on map labelled with id associated
+
+reef_map
+```
+
