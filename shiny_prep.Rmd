@@ -1,0 +1,62 @@
+---
+title: "Shiny app - prep"
+author: "Amelia Ritger"
+date: "2/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(janitor)
+```
+
+```{r, message=FALSE, warning=FALSE}
+#Read in data
+reef <- read_csv("MBONReef_Histogram.csv")
+
+#Tidy up the data
+reef_tidy <- reef %>%
+  clean_names() %>% #standardize names
+  pivot_longer("annelida_cirriformia_luxuriosa":"substrate_amphipod_tube_complex") %>%  #make long form
+  separate(name, into="phylum", sep="_", remove=FALSE) %>% #Add column for phylum name
+  mutate(vectorized_name=str_split(name, pattern="_")) %>% #In case this is useful...
+  filter(!phylum=="no") %>% #remove values related to data collection issue
+  filter(!phylum=="substrate") #remove substrate values
+
+#Because it's faster to do it outside tidyverse
+reef_tidy$binary <- ifelse(reef_tidy$value>0, 1, 0) #Add presence/absence column
+reef_tidy$species <- gsub("^[^_]*_","",reef_tidy$name, perl=TRUE) #Add column for species name
+
+#Extract only species present
+reef_tidy <- reef_tidy %>%
+  filter(binary > "0")
+```
+
+### Let's try plotting something
+
+#### The counts of each phylum (or species) occurring at each location:
+```{r}
+ggplot(reef_tidy, aes(x=phylum)) +
+  geom_bar(aes(phylum)) +
+  facet_wrap(~location)
+```
+
+I will allow people to pick their phylum (or species) of interest and pick their location of interest
+
+### Let's try plotting something else
+
+#### The counts of co-occuring phyla (or species) with a focal phylum (or species)
+```{r}
+reef_select <- reef_tidy %>%
+  mutate(focal_phylum="annelida") %>% #pick a focal phylum (BASED ON INPUT)
+  mutate(presence = ifelse(phylum==focal_phylum, filename, "FALSE")) %>% #create a column that we can subset all rows in a plot based on the presence of focal phylum in the plot at least once
+  filter(filename %in% presence) %>% #if focal phylum is present, keep all observations of that plot ("filename")
+  #filter(!phylum=="annelida") %>% #remove the focal phylum, because we don't need to see co-occurrence of focal phylum with focal phylum (BASED ON INPUT)
+  filter(phylum==c("porifera", "mollusca")) #select only the coocurring species you want to look at
+  
+ggplot(reef_select, aes(x=phylum)) +
+  geom_bar(aes(phylum)) +
+  coord_flip()
+```
+I will allow people to pick their focal phylum and co-occuring phylum
