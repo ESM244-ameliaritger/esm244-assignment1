@@ -13,6 +13,7 @@ library(sf)
 library(tmap)
 ```
 
+## Organize the data 
 ```{r, message=FALSE, warning=FALSE}
 #Read in data
 reef <- read_csv("MBONReef_Histogram.csv")
@@ -20,7 +21,10 @@ reef <- read_csv("MBONReef_Histogram.csv")
 #Tidy up the data
 reef_tidy <- reef %>%
   clean_names() %>% #standardize names
-  rename(latitude=lat_start, longitude=long_start) %>% #rename latitude and longitude
+  #rename(latitude=lat_start, longitude=long_start) %>% #rename latitude and longitude
+  group_by(location) %>% #group by location to get average lat/long values for each location
+  mutate(latitude=mean(lat_start), longitude=mean(long_start)) %>% #get average lat/long values (because that's how that works...)
+  ungroup() %>% #really important, we don't want to confuse R!
   pivot_longer("annelida_cirriformia_luxuriosa":"substrate_amphipod_tube_complex") %>%  #make long form
   separate(name, into="phylum", sep="_", remove=FALSE) %>% #Add column for phylum name
   mutate(vectorized_name=str_split(name, pattern="_")) %>% #In case this is useful...
@@ -34,7 +38,35 @@ reef_tidy$longitude <- ifelse(reef_tidy$longitude<0, reef_tidy$longitude, -reef_
 
 #Extract only species present
 reef_tidy <- reef_tidy %>%
-  filter(binary > "0")
+  filter(binary > "0") %>% #filter out species not present
+  st_as_sf(coords=c("longitude", "latitude"), crs=4326) #create sticky geometry for lat/long
+```
+
+### Create different datasets for different uses
+```{r, message=FALSE, warning=FALSE}
+#Subset for a species
+reef_species <- reef_tidy %>%
+  mutate(focal_phylum="annelida") %>% #pick a focal phylum (BASED ON INPUT)
+  mutate(to_match = ifelse(phylum==focal_phylum, filename, "FALSE")) %>% #create a column that we can subset all rows in a plot based on the presence of focal phylum in the plot at least once
+  filter(filename %in% to_match) %>% #if focal phylum is present, keep all observations of that plot ("filename")
+  #filter(!phylum=="annelida") %>% #remove the focal phylum, because we don't need to see co-occurrence of focal phylum with focal phylum (BASED ON INPUT)
+  filter(phylum==c("annelida","porifera","mollusca")) #select only the coocurring species you want to look at (BASED ON INPUT)
+
+#Subset for a location
+reef_location <- reef_tidy %>%
+  mutate(focal_location="Rodes") %>% #pick a focal location (BASED ON INPUT)
+  mutate(to_match = ifelse(location==focal_location, filename, "FALSE")) %>% #create a column that we can subset all rows in a plot based on the presence of focal phylum in the plot at least once
+  filter(filename %in% to_match) %>% #if focal phylum is present, keep all observations of that plot ("filename")
+  #filter(!phylum=="annelida") %>% #remove the focal phylum, because we don't need to see co-occurrence of focal phylum with focal phylum (BASED ON INPUT)
+  filter(phylum==c("annelida","porifera","mollusca")) #select only the coocurring species you want to look at (BASED ON INPUT)
+
+#Find average abundance values of each phylum for each location
+reef_summary <- reef_tidy %>%
+  group_by(location,phylum) %>% #group by location, then lat/long
+  summarize(mean_count = mean(value), #get the mean count
+            sd_count = sd(value), #get the s.d. count
+            sample_size = n()) %>%  #get the sample size
+  filter(phylum==c("annelida","porifera","mollusca")) #select only the species you want to look at (BASED ON INPUT)
 ```
 
 ### Let's try plotting something
@@ -52,21 +84,13 @@ I will allow people to pick their phylum (or species) of interest and pick their
 
 #### The counts of co-occuring phyla (or species) with a focal phylum (or species)
 ```{r}
-reef_select <- reef_tidy %>%
-  mutate(focal_phylum="annelida") %>% #pick a focal phylum (BASED ON INPUT)
-  mutate(presence = ifelse(phylum==focal_phylum, filename, "FALSE")) %>% #create a column that we can subset all rows in a plot based on the presence of focal phylum in the plot at least once
-  filter(filename %in% presence) %>% #if focal phylum is present, keep all observations of that plot ("filename")
-  #filter(!phylum=="annelida") %>% #remove the focal phylum, because we don't need to see co-occurrence of focal phylum with focal phylum (BASED ON INPUT)
-  filter(phylum==c("porifera", "mollusca")) #select only the coocurring species you want to look at
-  
-ggplot(reef_select, aes(x=phylum)) +
+ggplot(reef_species, aes(x=phylum)) +
   geom_bar(aes(phylum)) +
   coord_flip()
 ```
 I will allow people to pick their focal phylum and co-occuring phylum
 
 ### Now let's make a map!
-```{r}
 library(rnaturalearth)
 
 world <- ne_countries(scale = "medium", returnclass = "sf")
@@ -76,22 +100,18 @@ ggplot(data = world) +
     geom_point(data=reef_tidy, aes(x = longitude, y = latitude), size = 4, 
         shape = 23, fill = "darkred") +
     coord_sf(xlim = c(-121, -118.5), ylim = c(33, 35), expand = FALSE)
-```
-
-ggplot() +
-  geom_sf(data=reef_tidy, fill="gray90", color="gray80", size=0.2) +
-  geom_sf(data=eco_clip, aes(fill=region), color="white", size = 0.4, show.legend=TRUE) +
-  coord_sf(xlim=c(-121, -119), ylim=c(33.5, 35.5)) + #remove greater CA state, zoom into SB county
-  theme_minimal()
   
 ### Let's make an interactive map!
 ```{r}
-reef_sf <- st_as_sf(reef_tidy, coords=c("longitude", "latitude"), crs=4326) #make data sf geometry friendly
+reef_sf <- st_as_sf(reef_summary, coords=geometry, crs=4326) #make data sf geometry friendly
 
 reef_map <- tm_basemap("Esri.WorldImagery") +
   tm_shape(reef_sf) + #tells tmap where we're looking (i.e. california)
-  tm_dots(labels="id", col="purple", size=0.5) #tells tmap to plot points on map labelled with id associated
+  #tm_dots(labels="value", col="purple", size=0.5) #tells tmap to plot points on map labelled with id associated
+  tm_symbols(id="location", col = "purple", size = "mean_count", scale = 3) +
+  tm_facets(by = "phylum")
 
+tmap_mode("view") #view = interactive
 reef_map
 ```
 
