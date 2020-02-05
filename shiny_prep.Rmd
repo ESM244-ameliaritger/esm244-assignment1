@@ -66,7 +66,7 @@ reef_summary <- reef_tidy %>%
   summarize(mean_count = mean(value), #get the mean count
             sd_count = sd(value), #get the s.d. count
             sample_size = n()) %>%  #get the sample size
-  filter(phylum==c("annelida","porifera","mollusca")) #select only the species you want to look at (BASED ON INPUT)
+  filter(phylum==c("annelida")) #select only the species you want to look at (BASED ON INPUT)
 ```
 
 ### Let's try plotting something
