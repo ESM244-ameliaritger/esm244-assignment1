@@ -89,16 +89,18 @@ ui <- navbarPage("Amelia's navigation bar",
                           p("here's even more regular text"),
                           sidebarLayout(
                             sidebarPanel("text be here",
+                                         radioButtons(inputId = "pickacolor", 
+                                                     label = "pick a color!",
+                                                     choices = c("RED!!"="red", "PURPLE!!"="purple", "ORAAAANGE!!!"="orange", "YELLOW!!"="yellow", "GREEEEEN!!"="green")),
                                          radioButtons(inputId="mapit",
                                                      label="pick a phylum!",
                                                      choices=unique(reef_tidy$phylum)),
-                                         selectInput(inputId = "pickacolor", 
-                                                     label = "pick a color",
-                                                     choices = c("favorite RED!!"="red", "pretty purple!"="purple", "ORAAAANGE!!!"="orange"))),
+                                         radioButtons(inputId="pickavalue",
+                                                      label="pick an output!",
+                                                      choices=c("mean"="mean_count", "sd"="sd_count"))),
                             mainPanel("some more text is here",
                                       leafletOutput("mysupercoolmap"))
                           )))
-
 
 # Create server
 server <- function(input, output){
@@ -139,7 +141,7 @@ server <- function(input, output){
   output$mysupercoolmap <- renderLeaflet({
     reef_map <- tm_basemap("Esri.WorldImagery") +
       tm_shape(reef_summary()) +
-      tm_symbols(id="location", col = input$pickacolor, size = "mean_count", scale = 3) +
+      tm_symbols(id="location", col = input$pickacolor, size = input$pickavalue, scale=2) +
       tm_facets(by = "phylum")
     
     tmap_leaflet(reef_map)
