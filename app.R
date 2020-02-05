@@ -4,6 +4,9 @@ library(janitor)
 library(shiny)
 library(shinythemes)
 library(shinyWidgets)
+library(sf)
+library(tmap)
+library(leaflet)
 
 #read in data
 reef <- read_csv("MBONReef_Histogram.csv")
@@ -22,6 +25,32 @@ reef_tidy$species <- gsub("^[^_]*_","",reef_tidy$name, perl=TRUE)
 
 reef_tidy <- reef_tidy %>%
   filter(binary > "0")
+
+
+#####
+reef_dontfuckthisup <- reef %>%
+  clean_names() %>% #standardize names
+  #rename(latitude=lat_start, longitude=long_start) %>% #rename latitude and longitude
+  group_by(location) %>% #group by location to get average lat/long values for each location
+  mutate(latitude=mean(lat_start), longitude=mean(long_start)) %>% #get average lat/long values (because that's how that works...)
+  ungroup() %>% #really important, we don't want to confuse R!
+  pivot_longer("annelida_cirriformia_luxuriosa":"substrate_amphipod_tube_complex") %>%  #make long form
+  separate(name, into="phylum", sep="_", remove=FALSE) %>% #Add column for phylum name
+  mutate(vectorized_name=str_split(name, pattern="_")) %>% #In case this is useful...
+  filter(!phylum=="no") %>% #remove values related to data collection issue
+  filter(!phylum=="substrate") #remove substrate values
+
+#Because it's faster to do it outside tidyverse
+reef_dontfuckthisup$binary <- ifelse(reef_dontfuckthisup$value>0, 1, 0) #Add presence/absence column
+reef_dontfuckthisup$species <- gsub("^[^_]*_","",reef_dontfuckthisup$name, perl=TRUE) #Add column for species name
+reef_dontfuckthisup$longitude <- ifelse(reef_dontfuckthisup$longitude<0, reef_dontfuckthisup$longitude, -reef_dontfuckthisup$longitude) #because all longitude values in this region should be negative 
+
+#Extract only species present
+reef_dontfuckthisup <- reef_dontfuckthisup %>%
+  filter(binary > "0") %>% #filter out species not present
+  st_as_sf(coords=c("longitude", "latitude"), crs=4326) #create sticky geometry for lat/long
+
+
 
 
 #Create user interface
@@ -54,6 +83,20 @@ ui <- navbarPage("Amelia's navigation bar",
                                                             choices=unique(reef_tidy$location))),
                             mainPanel("some more text is here",
                                       plotOutput(outputId="plot2"))
+                          )),
+                 tabPanel("Third tab!!",
+                          h1("third tab header"),
+                          p("here's even more regular text"),
+                          sidebarLayout(
+                            sidebarPanel("text be here",
+                                         radioButtons(inputId="mapit",
+                                                     label="pick a phylum!",
+                                                     choices=unique(reef_tidy$phylum)),
+                                         selectInput(inputId = "pickacolor", 
+                                                     label = "pick a color",
+                                                     choices = c("favorite RED!!"="red", "pretty purple!"="purple", "ORAAAANGE!!!"="orange"))),
+                            mainPanel("some more text is here",
+                                      leafletOutput("mysupercoolmap"))
                           )))
 
 
@@ -82,6 +125,24 @@ server <- function(input, output){
   output$plot2 <- renderPlot({
     ggplot(reef_site(), aes(x=phylum)) +
       geom_bar(aes(phylum))
+  })
+  
+  reef_summary <- reactive({
+    reef_dontfuckthisup %>%
+      group_by(location,phylum) %>% #group by location, then lat/long
+      summarize(mean_count = mean(value), #get the mean count
+                sd_count = sd(value), #get the s.d. count
+                sample_size = n()) %>%  #get the sample size
+      filter(phylum==c(input$mapit))
+  })
+  
+  output$mysupercoolmap <- renderLeaflet({
+    reef_map <- tm_basemap("Esri.WorldImagery") +
+      tm_shape(reef_summary()) +
+      tm_symbols(id="location", col = input$pickacolor, size = "mean_count", scale = 3) +
+      tm_facets(by = "phylum")
+    
+    tmap_leaflet(reef_map)
   })
 }
 
