@@ -9,14 +9,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-You only need to use one dataset to practice running PCA, creating a biplot, and interpreting the results. Whichever dataset you choose, create a finalized HTML (knitted from .Rmd) that can be included as a project on your blogdown site including: 
+## Task 2: Food nutrients
 
-1. A useful descriptive introductory summary (3 - 4 sentences) that helps the audience understand the data (include a citation as necessary) and what you’ll be exploring
-2. All of your organized and well-annotated code (with warnings/messages hidden) used to wrangle then run PCA, then create a finalized PCA biplot that appears (with a caption) in your knitted HTML
-3. A summary (bulletpoints are fine) pointing out some major takeaways from your PCA that can be gleaned from the biplot
-4. You are also welcome to include a photo in the HTML to add some visual interest (not required for Task 2). 
-
-The following is an exploration of food nutrient information provided by the [USDA National Nutrient Database](https://fdc.nal.usda.gov/index.html). Specifically, I examined variation in nutrients (such as fat, vitamin E, and iron) present in baby food using a principal components analysis (PCA). Using a PCA allowed me to explore the multi-dimensionality of many nutrients (23, to be specific) present in baby food in a format that my adult brain can better comprehend.
+The following is an exploration of food nutrient information provided by the [USDA National Nutrient Database](https://fdc.nal.usda.gov/index.html). Specifically, I examine variation in nutrients (such as fat, vitamin E, and iron) present in baby food using a principal components analysis (PCA). Using a PCA will allow me to explore the multi-dimensionality of many nutrients (23, to be specific) present in baby food in a format that my adult brain can better comprehend.
 
 #### So, let's get started!
 ```{r, message=FALSE, warning=FALSE}
@@ -31,6 +26,7 @@ library(ggfortify)
 #Input the data
 food <- read_csv("usda_nutrients.csv")
 
+#Take a look at the data
 unique(food$FoodGroup)
 ```
 It would be interesting to compare fast foods and restaurant foods. But that would mean running two PCAs *and ain't nobody got time for that*... so let's look at baby food!
@@ -77,6 +73,7 @@ autoplot(food_pca,
   scale_x_continuous(limits = c(-0.2, 0.05)) +
   scale_y_continuous(limits = c(-0.3, 0.2))
 ```
+
 Figure 1. Principal components analysis (PCA) on food nutrients measured in baby food sold in the United States. Principal component 1 (PC1) accounted for 55.35% of variation in food nutrients, and principal component 2 (PC2) accounted for an additional 17.16% of food nutrient variation. 
 
 #### So, what does this mean?

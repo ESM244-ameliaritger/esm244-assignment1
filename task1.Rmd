@@ -1,5 +1,5 @@
 ---
-title: "Assignment 1"
+title: "Task 1"
 author: "Amelia Ritger"
 date: "2/1/2020"
 output: html_document
@@ -8,20 +8,6 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-You get to decide what variables and summary statistics to visualize. Here’s what you should prepare: A single polished HTML (knitted from .Rmd), planning that this might be a post/project you’d include on your personal blogdown site, that includes at least:
-
-1. A useful descriptive introductory summary (3 - 4 sentences) of what’s contained in the project
-
-2. Image(s), with captions and necessary citation(s), of showshoe hares and/or a map of the study area
-
-3. All of your organized and well-annotated code (with warnings/messages hidden) used to create at least
-
-- One finalized graph about the Bonanza Creek snowshoe hare population (you pick which variables, how you want to wrangle it beforehand, and which type of visual to create - but make sure it is beautifully finalized)
-
-- One finalized HTML table (probably created using kable & kableExtra) containing summary statistics about the snowshoe hares (again, you pick which variables, and how you want to group/summarize them)
-
-4. Make sure that both your figure and table appear in your final knitted document, each with a useful caption. Include text associated with each to help the audience understand and interpret the results.
 
 ## Task 1: snowshoe hares 
 
@@ -64,11 +50,12 @@ keep(is.numeric) %>%
     facet_wrap(~ key, scales = "free") +
     geom_histogram()
 ```
+
 It might be interesting to look at weight across year for males and females at different locations.
 
 #### Let's take a look at the data:
 ```{r,, message=FALSE}
-unique(snowshoe$grid)
+unique(snowshoe$sex)
 #definitely looks like there's some questioning of sex in here, let's remove those question marks
 
 hare_wt <- hare_raw %>% 
@@ -86,6 +73,7 @@ ggplot(hare_wt, aes(x = date, y = weight)) +
   facet_wrap(~grid) +
   scale_color_manual(values = c("pink","blue"))
 ```
+
 Darn, it looks like only "bonrip" was continuously sampled from 2000-2015. So I'm going to focus on "bonrip" for my analysis.
 
 #### Let's focus in on the main question: What are the characteristics of individuals that are trapped more than once?
@@ -128,6 +116,7 @@ ggplot(trapped, aes(x = sex, y=bc)) +
                   pch = sex)) +
   facet_wrap(~trapping)
 ```
+
 Let's work a bit more with this.
 
 #### Get summary statistics:
